@@ -29,13 +29,13 @@ var defaults = {
 	 * Layout templates
 	 * @type {(String|Array)}
 	 */
-	layouts: ['src/views/layouts/*'],
+	layouts: ['src/views/layouts/**/*'],
 
 	/**
 	 * Layout includes (partials)
 	 * @type {String}
 	 */
-	layoutIncludes: ['src/views/layouts/includes/*'],
+	layoutIncludes: ['src/views/layouts/includes/**/*'],
 
 	/**
 	 * Pages to be inserted into a layout
@@ -160,10 +160,8 @@ var assembly = {
  * @return {String}
  */
 var getName = function (filePath, preserveNumbers) {
-	// get name; replace spaces with dashes
-	var name = path.basename(filePath, path.extname(filePath)).replace(/\s/g, '-');
+	var name = path.basename(filePath, path.extname(filePath));
 	return (preserveNumbers) ? name : name.replace(/^[0-9|\.\-]+/, '');
-
 };
 
 
@@ -313,57 +311,63 @@ var parseMaterials = function () {
 
 	// iterate over each file (material)
 	files.forEach(function (file) {
+		try {
+			// get info
+			var fileMatter = getMatter(file);
+			var collection = getName(path.normalize(path.dirname(file)).split(path.sep).pop(), true);
+			var parent = path.normalize(path.dirname(file)).split(path.sep).slice(-2, -1)[0];
+			var isSubCollection = (dirs.indexOf(parent) > -1);
+			var id = (isSubCollection) ? getName(collection) + '.' + getName(file) : getName(file);
+			var key = (isSubCollection) ? collection + '.' + getName(file, true) : getName(file, true);
 
-		// get info
-		var fileMatter = getMatter(file);
-		var collection = getName(path.normalize(path.dirname(file)).split(path.sep).pop(), true);
-		var parent = path.normalize(path.dirname(file)).split(path.sep).slice(-2, -1)[0];
-		var isSubCollection = (dirs.indexOf(parent) > -1);
-		var id = (isSubCollection) ? getName(collection) + '.' + getName(file) : getName(file);
-		var key = (isSubCollection) ? collection + '.' + getName(file, true) : getName(file, true);
+			// get material front-matter, omit `notes`
+			var localData = _.omit(fileMatter.data, 'notes');
 
-		// get material front-matter, omit `notes`
-		var localData = _.omit(fileMatter.data, 'notes');
-
-		// trim whitespace from material content
-		var content = fileMatter.content.replace(/^(\s*(\r?\n|\r))+|(\s*(\r?\n|\r))+$/g, '');
-
-
-		// capture meta data for the material
-		if (!isSubCollection) {
-			assembly.materials[collection].items[key] = {
-				name: toTitleCase(id),
-				notes: (fileMatter.data.notes) ? md.render(fileMatter.data.notes) : '',
-				data: localData
-			};
-		} else {
-			assembly.materials[parent].items[collection].items[key] = {
-				name: toTitleCase(id.split('.')[1]),
-				notes: (fileMatter.data.notes) ? md.render(fileMatter.data.notes) : '',
-				data: localData
-			};
-		}
+			// trim whitespace from material content
+			var content = fileMatter.content.replace(/^(\s*(\r?\n|\r))+|(\s*(\r?\n|\r))+$/g, '');
 
 
-		// store material-name-spaced local data in template context
-		assembly.materialData[id.replace(/\./g, '-')] = localData;
+			// capture meta data for the material
+			if (!isSubCollection) {
+				assembly.materials[collection].items[key] = {
+					name: toTitleCase(id),
+					notes: (fileMatter.data.notes) ? md.render(fileMatter.data.notes) : '',
+					data: localData
+				};
+			} else {
+				assembly.materials[parent].items[collection].items[key] = {
+					name: toTitleCase(id.split('.')[1]),
+					notes: (fileMatter.data.notes) ? md.render(fileMatter.data.notes) : '',
+					data: localData
+				};
+			}
 
 
-		// replace local fields on the fly with name-spaced keys
-		// this allows partials to use local front-matter data
-		// only affects the compilation environment
-		if (!_.isEmpty(localData)) {
-			_.forEach(localData, function (val, key) {
-				// {{field}} => {{material-name.field}}
-				var regex = new RegExp('(\\{\\{[#\/]?)(\\s?' + key + '+?\\s?)(\\}\\})', 'g');
-				content = content.replace(regex, function (match, p1, p2, p3) {
-					return p1 + id.replace(/\./g, '-') + '.' + p2.replace(/\s/g, '') + p3;
+			// store material-name-spaced local data in template context
+			assembly.materialData[id.replace(/\./g, '-')] = localData;
+
+
+			// replace local fields on the fly with name-spaced keys
+			// this allows partials to use local front-matter data
+			// only affects the compilation environment
+			if (!_.isEmpty(localData)) {
+				_.forEach(localData, function (val, key) {
+					// {{field}} => {{material-name.field}}
+					var regex = new RegExp('(\\{\\{[#\/]?)(\\s?' + key + '+?\\s?)(\\}\\})', 'g');
+					content = content.replace(regex, function (match, p1, p2, p3) {
+						return p1 + id.replace(/\./g, '-') + '.' + p2.replace(/\s/g, '') + p3;
+					});
 				});
-			});
+			}
+
+			// register the partial
+			Handlebars.registerPartial(id, content);
+		}
+		catch(e) {
+			console.error(e, file);
 		}
 
-		// register the partial
-		Handlebars.registerPartial(id, content);
+
 
 	});
 
@@ -431,14 +435,57 @@ var parseLayouts = function () {
  */
 var parseLayoutIncludes = function () {
 
+	// // get files
+	// var files = globby.sync(options.layoutIncludes, { nodir: true });
+
+	// // save content of each file
+	// files.forEach(function (file) {
+	// 	var id = getName(file);
+	// 	var content = fs.readFileSync(file, 'utf-8');
+	// 	Handlebars.registerPartial(id, content);
+	// });
+
+
+	///////////////////////
+	// reset
+	assembly.layouts.includes = {};
+
 	// get files
 	var files = globby.sync(options.layoutIncludes, { nodir: true });
 
-	// save content of each file
 	files.forEach(function (file) {
-		var id = getName(file);
+
+		var id = getName(file, true);
 		var content = fs.readFileSync(file, 'utf-8');
+
+		// determine if view is part of a collection (subdir)
+		var dirname = path.normalize(path.dirname(file)).split(path.sep).pop(),
+			collection = (dirname !== 'includes') ? dirname : '';
+
+		var fileMatter = getMatter(file),
+			fileData = _.omit(fileMatter.data, 'notes');
+
+		// if this file is part of a collection
+		if (collection) {
+
+			// create collection if it doesn't exist
+			assembly.layouts.includes[collection] = assembly.layouts.includes[collection] || {
+				name: toTitleCase(collection),
+				items: {}
+			};
+
+			// store view data
+			assembly.layouts.includes[collection].items[id] = {
+				name: toTitleCase(id),
+				data: fileData
+			};
+
+			id = 'includes.' + collection + '.' + id; 
+
+		}
+
 		Handlebars.registerPartial(id, content);
+
 	});
 
 };

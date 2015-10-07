@@ -522,25 +522,20 @@ var parseViews = function () {
 	// reset
 	assembly.views = {};
 
-console.log(options.views);
-
 	// get files
 	var files = globby.sync(options.views, { nodir: true });
 
 	files.forEach(function (file) {
 
-console.log('file: ', file);
-
-
 		var id = getName(file, true);
 
 		// determine if view is part of a collection (subdir)
     var dirs = path.normalize(path.dirname(file));
-//console.log(dirs);
 
 		var dirname = path.normalize(path.dirname(file)).split(path.sep).pop(),
 			collection = (dirname !== options.keys.views) ? dirname : '';
 
+    var filePath = dirs.replace(options.srcFolder, '');
 		var fileMatter = getMatter(file),
 			fileData = _.omit(fileMatter.data, 'notes');
 
@@ -555,7 +550,7 @@ console.log('file: ', file);
 
 			// store view data
 			assembly.views[collection].items[id] = {
-        path: 'test',
+        path: filePath,
 				name: toTitleCase(id),
 				data: fileData
 			};

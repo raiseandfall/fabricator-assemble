@@ -1,3 +1,5 @@
+'use strict';
+
 // modules
 var _ = require('lodash');
 var beautifyHtml = require('js-beautify').html;
@@ -520,14 +522,22 @@ var parseViews = function () {
 	// reset
 	assembly.views = {};
 
+console.log(options.views);
+
 	// get files
 	var files = globby.sync(options.views, { nodir: true });
 
 	files.forEach(function (file) {
 
+console.log('file: ', file);
+
+
 		var id = getName(file, true);
 
 		// determine if view is part of a collection (subdir)
+    var dirs = path.normalize(path.dirname(file));
+//console.log(dirs);
+
 		var dirname = path.normalize(path.dirname(file)).split(path.sep).pop(),
 			collection = (dirname !== options.keys.views) ? dirname : '';
 
@@ -545,6 +555,7 @@ var parseViews = function () {
 
 			// store view data
 			assembly.views[collection].items[id] = {
+        path: 'test',
 				name: toTitleCase(id),
 				data: fileData
 			};

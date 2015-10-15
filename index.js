@@ -85,7 +85,7 @@ var defaults = {
    */
   beautifier: {
     indent_size: 1,
-    indent_char: '	',
+    indent_char: '  ',
     indent_with_tabs: true
   },
 
@@ -333,13 +333,17 @@ var parseMaterials = function () {
       if (!isSubCollection) {
         assembly.materials[collection].items[key] = {
           name: toTitleCase(id),
+          plainName: id,
           notes: (fileMatter.data.notes) ? md.render(fileMatter.data.notes) : '',
+          states: (fileMatter.data.states) ? fileMatter.data.states : '',
           data: localData
         };
       } else {
         assembly.materials[parent].items[collection].items[key] = {
           name: toTitleCase(id.split('.')[1]),
+          plainName: id,
           notes: (fileMatter.data.notes) ? md.render(fileMatter.data.notes) : '',
+          states: (fileMatter.data.states) ? fileMatter.data.states : '',
           data: localData
         };
       }
@@ -442,9 +446,9 @@ var parseLayoutIncludes = function () {
 
   // // save content of each file
   // files.forEach(function (file) {
-  // 	var id = getName(file);
-  // 	var content = fs.readFileSync(file, 'utf-8');
-  // 	Handlebars.registerPartial(id, content);
+  //  var id = getName(file);
+  //  var content = fs.readFileSync(file, 'utf-8');
+  //  Handlebars.registerPartial(id, content);
   // });
 
 
